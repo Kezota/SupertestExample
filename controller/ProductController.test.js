@@ -1,5 +1,6 @@
 import request from "supertest";
 import express from "express";
+import { login, register } from "../controller/AuthController.js";
 import {
   getProduct,
   createProduct,
@@ -9,6 +10,8 @@ import { protect } from "../middleware/protect.js";
 
 const app = express();
 app.use(express.json());
+app.post("/login", login);
+app.post("/register", register);
 app.get("/products", protect, getProduct);
 app.post("/products", protect, createProduct);
 app.delete("/products", protect, deleteProduct);
@@ -18,10 +21,30 @@ jest.mock("../middleware/protect.js", () => ({
   protect: (req, res, next) => next(),
 }));
 
+let token;
+
+beforeAll(async () => {
+  // Register a new user
+  await request(app).post("/register").send({
+    email: "test@example.com",
+    password: "password123",
+  });
+
+  // Login to get the token
+  const res = await request(app).post("/login").send({
+    email: "test@example.com",
+    password: "password123",
+  });
+
+  token = res.body.token;
+});
+
 describe("ProductController", () => {
   describe("GET /products", () => {
     it("should retrieve all products", async () => {
-      const res = await request(app).get("/products");
+      const res = await request(app)
+        .get("/products")
+        .set("Authorization", `Bearer ${token}`);
       expect(res.statusCode).toEqual(200);
       expect(res.body).toHaveProperty(
         "message",
@@ -33,10 +56,13 @@ describe("ProductController", () => {
 
   describe("POST /products", () => {
     it("should create a new product", async () => {
-      const res = await request(app).post("/products").send({
-        name: "Product1",
-        stock: 10,
-      });
+      const res = await request(app)
+        .post("/products")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          name: "Product1",
+          stock: 10,
+        });
       expect(res.statusCode).toEqual(200);
       expect(res.body).toHaveProperty(
         "message",
@@ -46,26 +72,35 @@ describe("ProductController", () => {
     });
 
     it("should return 400 if name is missing", async () => {
-      const res = await request(app).post("/products").send({
-        stock: 10,
-      });
+      const res = await request(app)
+        .post("/products")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          stock: 10,
+        });
       expect(res.statusCode).toEqual(400);
       expect(res.body).toHaveProperty("message", "Name is required");
     });
 
     it("should return 400 if stock is missing", async () => {
-      const res = await request(app).post("/products").send({
-        name: "Product1",
-      });
+      const res = await request(app)
+        .post("/products")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          name: "Product1",
+        });
       expect(res.statusCode).toEqual(400);
       expect(res.body).toHaveProperty("message", "Stock is required");
     });
 
     it("should return 400 if stock is not a number", async () => {
-      const res = await request(app).post("/products").send({
-        name: "Product1",
-        stock: "not-a-number",
-      });
+      const res = await request(app)
+        .post("/products")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          name: "Product1",
+          stock: "not-a-number",
+        });
       expect(res.statusCode).toEqual(400);
       expect(res.body).toHaveProperty("message", "Stock must be a number");
     });
@@ -73,13 +108,19 @@ describe("ProductController", () => {
 
   describe("DELETE /products", () => {
     it("should delete a product", async () => {
-      await request(app).post("/products").send({
-        name: "ProductToDelete",
-        stock: 10,
-      });
-      const res = await request(app).delete("/products").send({
-        name: "ProductToDelete",
-      });
+      await request(app)
+        .post("/products")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          name: "ProductToDelete",
+          stock: 10,
+        });
+      const res = await request(app)
+        .delete("/products")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          name: "ProductToDelete",
+        });
       expect(res.statusCode).toEqual(200);
       expect(res.body).toHaveProperty(
         "message",
@@ -89,15 +130,21 @@ describe("ProductController", () => {
     });
 
     it("should return 400 if name is missing", async () => {
-      const res = await request(app).delete("/products").send({});
+      const res = await request(app)
+        .delete("/products")
+        .set("Authorization", `Bearer ${token}`)
+        .send({});
       expect(res.statusCode).toEqual(400);
       expect(res.body).toHaveProperty("message", "Name is required");
     });
 
     it("should return 404 if product does not exist", async () => {
-      const res = await request(app).delete("/products").send({
-        name: "NonExistentProduct",
-      });
+      const res = await request(app)
+        .delete("/products")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          name: "NonExistentProduct",
+        });
       expect(res.statusCode).toEqual(404);
       expect(res.body).toHaveProperty("message", "Product not found");
     });
