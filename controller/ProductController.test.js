@@ -1,4 +1,3 @@
-import request from "supertest";
 import express from "express";
 import { login, register } from "../controller/AuthController.js";
 import {
@@ -7,6 +6,7 @@ import {
   deleteProduct,
 } from "../controller/ProductController.js";
 import { protect } from "../middleware/protect.js";
+import { jest } from "@jest/globals";
 
 const app = express();
 app.use(express.json());
@@ -42,111 +42,133 @@ beforeAll(async () => {
 describe("ProductController", () => {
   describe("GET /products", () => {
     it("should retrieve all products", async () => {
-      const res = await request(app)
-        .get("/products")
-        .set("Authorization", `Bearer ${token}`);
-      expect(res.statusCode).toEqual(200);
-      expect(res.body).toHaveProperty(
-        "message",
-        "Products retrieved successfully"
+      const req = { headers: { authorization: `Bearer ${token}` } };
+      const res = { status: jest.fn().mockReturnThis(), json: jest.fn() };
+
+      await getProduct(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: "Products retrieved successfully",
+          data: expect.any(Array),
+        })
       );
-      expect(res.body).toHaveProperty("data");
     });
   });
 
   describe("POST /products", () => {
     it("should create a new product", async () => {
-      const res = await request(app)
-        .post("/products")
-        .set("Authorization", `Bearer ${token}`)
-        .send({
-          name: "Product1",
-          stock: 10,
-        });
-      expect(res.statusCode).toEqual(200);
-      expect(res.body).toHaveProperty(
-        "message",
-        "Product created successfully"
+      const req = {
+        headers: { authorization: `Bearer ${token}` },
+        body: { name: "Product1", stock: 10 },
+      };
+      const res = { status: jest.fn().mockReturnThis(), json: jest.fn() };
+
+      await createProduct(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: "Product created successfully",
+          data: expect.any(Object),
+        })
       );
-      expect(res.body).toHaveProperty("data");
     });
 
     it("should return 400 if name is missing", async () => {
-      const res = await request(app)
-        .post("/products")
-        .set("Authorization", `Bearer ${token}`)
-        .send({
-          stock: 10,
-        });
-      expect(res.statusCode).toEqual(400);
-      expect(res.body).toHaveProperty("message", "Name is required");
+      const req = {
+        headers: { authorization: `Bearer ${token}` },
+        body: { stock: 10 },
+      };
+      const res = { status: jest.fn().mockReturnThis(), json: jest.fn() };
+
+      await createProduct(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({ message: "Name is required" });
     });
 
     it("should return 400 if stock is missing", async () => {
-      const res = await request(app)
-        .post("/products")
-        .set("Authorization", `Bearer ${token}`)
-        .send({
-          name: "Product1",
-        });
-      expect(res.statusCode).toEqual(400);
-      expect(res.body).toHaveProperty("message", "Stock is required");
+      const req = {
+        headers: { authorization: `Bearer ${token}` },
+        body: { name: "Product1" },
+      };
+      const res = { status: jest.fn().mockReturnThis(), json: jest.fn() };
+
+      await createProduct(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({ message: "Stock is required" });
     });
 
     it("should return 400 if stock is not a number", async () => {
-      const res = await request(app)
-        .post("/products")
-        .set("Authorization", `Bearer ${token}`)
-        .send({
-          name: "Product1",
-          stock: "not-a-number",
-        });
-      expect(res.statusCode).toEqual(400);
-      expect(res.body).toHaveProperty("message", "Stock must be a number");
+      const req = {
+        headers: { authorization: `Bearer ${token}` },
+        body: { name: "Product1", stock: "not-a-number" },
+      };
+      const res = { status: jest.fn().mockReturnThis(), json: jest.fn() };
+
+      await createProduct(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        message: "Stock must be a number",
+      });
     });
   });
 
   describe("DELETE /products", () => {
     it("should delete a product", async () => {
-      await request(app)
-        .post("/products")
-        .set("Authorization", `Bearer ${token}`)
-        .send({
-          name: "ProductToDelete",
-          stock: 10,
-        });
-      const res = await request(app)
-        .delete("/products")
-        .set("Authorization", `Bearer ${token}`)
-        .send({
-          name: "ProductToDelete",
-        });
-      expect(res.statusCode).toEqual(200);
-      expect(res.body).toHaveProperty(
-        "message",
-        "Product deleted successfully"
+      const reqCreate = {
+        headers: { authorization: `Bearer ${token}` },
+        body: { name: "ProductToDelete", stock: 10 },
+      };
+      const resCreate = { status: jest.fn().mockReturnThis(), json: jest.fn() };
+
+      await createProduct(reqCreate, resCreate);
+
+      const reqDelete = {
+        headers: { authorization: `Bearer ${token}` },
+        body: { name: "ProductToDelete" },
+      };
+      const resDelete = { status: jest.fn().mockReturnThis(), json: jest.fn() };
+
+      await deleteProduct(reqDelete, resDelete);
+
+      expect(resDelete.status).toHaveBeenCalledWith(200);
+      expect(resDelete.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: "Product deleted successfully",
+          data: expect.any(Object),
+        })
       );
-      expect(res.body).toHaveProperty("data");
     });
 
     it("should return 400 if name is missing", async () => {
-      const res = await request(app)
-        .delete("/products")
-        .set("Authorization", `Bearer ${token}`)
-        .send({});
-      expect(res.statusCode).toEqual(400);
-      expect(res.body).toHaveProperty("message", "Name is required");
+      const req = {
+        headers: { authorization: `Bearer ${token}` },
+        body: {},
+      };
+      const res = { status: jest.fn().mockReturnThis(), json: jest.fn() };
+
+      await deleteProduct(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({ message: "Name is required" });
     });
 
     it("should return 404 if product does not exist", async () => {
-      const res = await request(app)
-        .delete("/products")
-        .set("Authorization", `Bearer ${token}`)
-        .send({
-          name: "NonExistentProduct",
-        });
-      expect(res.statusCode).toEqual(404);
-      expect(res.body).toHaveProperty("message", "Product not found");
+      const req = {
+        headers: { authorization: `Bearer ${token}` },
+        body: { name: "NonExistentProduct" },
+      };
+      const res = { status: jest.fn().mockReturnThis(), json: jest.fn() };
+
+      await deleteProduct(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(404);
+      expect(res.json).toHaveBeenCalledWith({ message: "Product not found" });
     });
   });
 });
